@@ -17,6 +17,8 @@
     top: 0;
     width: 100%;
     height: 100vh;
+    height: 100dvh;
+    /* Better mobile support */
     overflow: hidden;
     z-index: 0;
 }
@@ -462,11 +464,16 @@
 }
 
 /* Responsive */
+/* Responsive */
 @media (max-width: 768px) {
     .scrolly-card-wrapper {
         justify-content: center;
         padding-left: 0;
-        padding: 0 20px;
+        padding: 0 15px;
+        /* Slightly reduced padding to give more space */
+        width: 100%;
+        box-sizing: border-box;
+        /* Ensure padding doesn't affect width */
     }
 
     .scrolly-card {
@@ -474,6 +481,20 @@
         border-top: 4px solid var(--primary-color, var(--highlight-color));
         border-radius: 20px;
         text-align: center;
+        padding: 1.5rem;
+        /* Reduce padding on mobile card */
+        width: 100%;
+        /* Ensure it fits */
+        max-width: 100%;
+        background: rgba(0, 0, 0, 0.4);
+        /* Darker background for readability on mobile */
+        backdrop-filter: blur(10px);
+    }
+
+    .fullscreen-text-slide {
+        max-width: 100%;
+        /* Use full width */
+        padding: 1rem;
     }
 
     .scrolly-card h2 {
@@ -481,16 +502,22 @@
     }
 
     .scroll-progress-container {
-        right: 20px;
+        right: 10px;
         /* Closer on mobile */
-        transform: scale(0.8) translateY(-60%);
+        transform: scale(0.7) translateY(-60%);
+        /* Smaller scale */
+        transform-origin: right center;
     }
 
     .giant-text {
         font-size: 3rem;
+        /* Adjusted for mobile */
+        word-wrap: break-word;
+        /* Prevent overflow */
     }
 
     .subtitle-text {
-        font-size: 1.1rem;
+        font-size: 1rem;
+        padding: 0 10px;
     }
 }

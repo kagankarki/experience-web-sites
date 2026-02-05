@@ -19,11 +19,36 @@ body {
     color: var(--text-color);
     overflow-x: hidden;
     line-height: 1.6;
-    cursor: none;
-    /* Hide default cursor */
+
 }
 
-/* Custom Cursor */
+/* Custom Cursor - Desktop Only */
+@media (pointer: fine) {
+    body {
+        cursor: none;
+        /* Hide default cursor only on devices with a mouse */
+    }
+
+    .cursor-dot,
+    .cursor-outline {
+        display: block;
+    }
+}
+
+@media (pointer: coarse) {
+
+    .cursor-dot,
+    .cursor-outline {
+        display: none !important;
+        /* Force hide on touch devices */
+    }
+
+    body {
+        cursor: auto;
+    }
+}
+
+/* Base styles for cursor elements */
 .cursor-dot,
 .cursor-outline {
     position: fixed;
@@ -33,8 +58,10 @@ body {
     border-radius: 50%;
     z-index: 9999;
     pointer-events: none;
+    /* Default to hidden effectively via media query separation above, but strictly: */
 }
 
+/* Specific styles */
 .cursor-dot {
     width: 8px;
     height: 8px;

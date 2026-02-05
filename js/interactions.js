@@ -12,6 +12,9 @@ function initCustomCursor() {
 
     if (!cursorDot || !cursorOutline) return;
 
+    // Mobile/Touch Detection: Do not init if device is touch-primary
+    if (window.matchMedia("(pointer: coarse)").matches) return;
+
     window.addEventListener('mousemove', (e) => {
         const posX = e.clientX;
         const posY = e.clientY;
