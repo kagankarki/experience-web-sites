@@ -1,14 +1,7 @@
 /* ========================================
-   FULL SCREEN VIDEO SECTIONS (SNAP SCROLL)
+   FULL SCREEN VIDEO SECTIONS (MOBILE-FIRST)
    ======================================== */
 
-/* Parent container for snap scrolling */
-/* Parent container for snap scrolling - DISABLED for Scrollytelling
-html {
-    scroll-snap-type: y mandatory;
-    scroll-behavior: smooth;
-}
-*/
 html {
     scroll-behavior: smooth;
 }
@@ -23,7 +16,7 @@ video::-webkit-media-controls {
     display: none !important;
 }
 
-/* Individual Video Container */
+/* Individual Video Container - Mobile First */
 .video-scroll-container {
     position: relative;
     width: 100%;
@@ -33,19 +26,17 @@ video::-webkit-media-controls {
     background-color: #000;
     scroll-snap-align: start;
     overflow: hidden;
-
-    /* Smooth fade transition */
     opacity: 1;
-    transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Fade and scale effect when scrolling between videos */
 .video-scroll-container.fading {
-    opacity: 0.85;
-    transform: scale(0.98);
+    opacity: 0.88;
+    transform: scale(0.99);
 }
 
-/* The Video Element */
+/* The Video Element - Mobile Optimized */
 .scroll-video-item {
     width: 100vw;
     height: 100vh;
@@ -53,34 +44,34 @@ video::-webkit-media-controls {
     height: 100dvh;
     object-fit: cover;
     display: block;
-
-    /* Smooth scale transition */
     transform: scale(1);
-    transition: transform 1s cubic-bezier(0.4, 0, 0.2, 1), filter 0.8s ease;
+    transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1), filter 0.6s ease;
 }
 
-/* Subtle zoom and brightness effect on active video */
-.video-scroll-container:hover .scroll-video-item {
-    transform: scale(1.02);
-    filter: brightness(1.1);
+/* Subtle zoom effect - disabled on mobile for performance */
+@media (hover: hover) and (pointer: fine) {
+    .video-scroll-container:hover .scroll-video-item {
+        transform: scale(1.02);
+        filter: brightness(1.1);
+    }
 }
 
 /* Blur effect during transition */
 .video-scroll-container.transitioning .scroll-video-item {
-    filter: blur(3px);
+    filter: blur(2px);
 }
 
-/* Overlay Text */
+/* Overlay Text - Mobile First */
 .video-overlay {
     position: absolute;
-    bottom: 100px;
-    left: 100px;
+    bottom: 60px;
+    left: 20px;
+    right: 20px;
     z-index: 2;
     pointer-events: none;
-    text-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    text-shadow: 0 4px 10px rgba(0, 0, 0, 0.7);
     mix-blend-mode: normal;
-
-    /* Smooth entrance animation */
+    text-align: center;
     opacity: 0;
     transform: translateY(30px);
     animation: fadeInUp 1s ease forwards 0.5s;
@@ -94,31 +85,29 @@ video::-webkit-media-controls {
 }
 
 .video-title {
-    font-size: 5rem;
+    font-size: 2.5rem;
     font-weight: 800;
     color: #fff;
     margin: 0;
-    line-height: 1;
-    letter-spacing: -2px;
-
-    /* Premium text effect */
+    line-height: 1.1;
+    letter-spacing: -1px;
     background: linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.8) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
 }
 
-/* Scroll Indicator (Mouse Icon) - Only for video3 */
+/* Scroll Indicator - Simplified for mobile */
 .scroll-indicator {
     position: absolute;
-    bottom: 40px;
+    bottom: 30px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 10;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     opacity: 0;
     animation: fadeInIndicator 1s ease forwards 2s;
 }
@@ -131,27 +120,27 @@ video::-webkit-media-controls {
 
 /* Mouse Icon */
 .mouse-icon {
-    width: 30px;
-    height: 50px;
-    border: 3px solid rgba(255, 255, 255, 0.8);
-    border-radius: 20px;
+    width: 24px;
+    height: 40px;
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    border-radius: 16px;
     position: relative;
-    box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
 }
 
 /* Scroll wheel animation */
 .mouse-icon::before {
     content: '';
     position: absolute;
-    top: 10px;
+    top: 8px;
     left: 50%;
     transform: translateX(-50%);
-    width: 6px;
-    height: 10px;
+    width: 4px;
+    height: 8px;
     background: rgba(255, 255, 255, 0.9);
-    border-radius: 3px;
+    border-radius: 2px;
     animation: scrollWheel 2s ease-in-out infinite;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
 }
 
 @keyframes scrollWheel {
@@ -162,21 +151,21 @@ video::-webkit-media-controls {
 
     50% {
         opacity: 0.5;
-        transform: translateX(-50%) translateY(15px);
+        transform: translateX(-50%) translateY(12px);
     }
 
     100% {
         opacity: 0;
-        transform: translateX(-50%) translateY(20px);
+        transform: translateX(-50%) translateY(16px);
     }
 }
 
 /* Scroll text */
 .scroll-text {
-    font-size: 0.9rem;
+    font-size: 0.7rem;
     color: rgba(255, 255, 255, 0.9);
     text-transform: uppercase;
-    letter-spacing: 2px;
+    letter-spacing: 1.5px;
     font-weight: 600;
     text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
     animation: pulse 2s ease-in-out infinite;
@@ -197,7 +186,7 @@ video::-webkit-media-controls {
 /* Bouncing arrow animation */
 .scroll-indicator::after {
     content: '↓';
-    font-size: 1.5rem;
+    font-size: 1.2rem;
     color: rgba(255, 255, 255, 0.8);
     animation: bounce 2s ease-in-out infinite;
 }
@@ -210,40 +199,129 @@ video::-webkit-media-controls {
     }
 
     50% {
-        transform: translateY(10px);
+        transform: translateY(8px);
     }
 }
 
 /* Spacing between sections */
-.video-scroll-container+.solutions-section {
-    margin-top: 0;
-}
-
+.video-scroll-container+.solutions-section,
 .solutions-section+.video-scroll-container {
     margin-top: 0;
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
+/* ========================================
+   TABLET (min-width: 768px)
+   ======================================== */
+@media (min-width: 768px) {
     .video-title {
-        font-size: 3rem;
+        font-size: 3.5rem;
+        letter-spacing: -1.5px;
     }
 
     .video-overlay {
-        bottom: 60px;
-        left: 30px;
+        bottom: 80px;
+        left: 50px;
+        text-align: left;
     }
 
     .scroll-indicator {
-        bottom: 30px;
+        bottom: 35px;
     }
 
     .mouse-icon {
-        width: 25px;
-        height: 40px;
+        width: 26px;
+        height: 44px;
     }
 
     .scroll-text {
-        font-size: 0.75rem;
+        font-size: 0.8rem;
+    }
+}
+
+/* ========================================
+   DESKTOP (min-width: 1024px)
+   ======================================== */
+@media (min-width: 1024px) {
+    .video-scroll-container {
+        transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .video-scroll-container.fading {
+        opacity: 0.85;
+        transform: scale(0.98);
+    }
+
+    .scroll-video-item {
+        transition: transform 1s cubic-bezier(0.4, 0, 0.2, 1), filter 0.8s ease;
+    }
+
+    .video-scroll-container.transitioning .scroll-video-item {
+        filter: blur(3px);
+    }
+
+    .video-title {
+        font-size: 5rem;
+        letter-spacing: -2px;
+    }
+
+    .video-overlay {
+        bottom: 100px;
+        left: 100px;
+    }
+
+    .scroll-indicator {
+        bottom: 40px;
+    }
+
+    .mouse-icon {
+        width: 30px;
+        height: 50px;
+        border: 3px solid rgba(255, 255, 255, 0.8);
+        border-radius: 20px;
+    }
+
+    .mouse-icon::before {
+        width: 6px;
+        height: 10px;
+        top: 10px;
+        border-radius: 3px;
+    }
+
+    @keyframes scrollWheel {
+        0% {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        50% {
+            opacity: 0.5;
+            transform: translateX(-50%) translateY(15px);
+        }
+
+        100% {
+            opacity: 0;
+            transform: translateX(-50%) translateY(20px);
+        }
+    }
+
+    .scroll-text {
+        font-size: 0.9rem;
+        letter-spacing: 2px;
+    }
+
+    .scroll-indicator::after {
+        font-size: 1.5rem;
+    }
+
+    @keyframes bounce {
+
+        0%,
+        100% {
+            transform: translateY(0);
+        }
+
+        50% {
+            transform: translateY(10px);
+        }
     }
 }
