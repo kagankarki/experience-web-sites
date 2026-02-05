@@ -2,14 +2,9 @@
 // USER INTERACTIONS
 // ========================================
 function initInteractions() {
-    // Only init custom cursor on non-touch devices
-    if (!isTouchDevice()) {
-        initCustomCursor();
-    } else {
-        // Hide cursor elements on mobile
-        const cursorElements = document.querySelectorAll('.cursor-dot, .cursor-outline');
-        cursorElements.forEach(el => el.style.display = 'none');
-    }
+    // Always init custom cursor JS
+    // We handle visibility via CSS media queries in theme.css
+    initCustomCursor();
     init3DTilt();
 }
 

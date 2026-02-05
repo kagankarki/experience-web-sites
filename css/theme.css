@@ -207,9 +207,9 @@ body.hovering .cursor-outline {
 /* ========================================
    MOBILE OPTIMIZATIONS
    ======================================== */
-@media (max-width: 1024px) and (hover: none) and (pointer: coarse) {
+@media (pointer: coarse) {
 
-    /* Hide custom cursor on mobile/tablet */
+    /* Hide custom cursor on touch-primary devices (Mobile/Tablet) */
     body {
         cursor: auto !important;
     }
