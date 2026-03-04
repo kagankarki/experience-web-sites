@@ -13,47 +13,47 @@ import ScrollyNetwork from './ScrollyNetwork.astro';
 <div id="apple-scrolly-canvas">
    
    <!-- 1. AI Core -->
-   <div id="obj-ai" class="scrolly-item" style="opacity: 0;">
+   <div id="obj-ai" class="scrolly-item" style="opacity: 0; visibility: hidden;">
       <ScrollyAiCore />
    </div>
 
    <!-- 2. Server / Big Data -->
-   <div id="obj-data" class="scrolly-item" style="opacity: 0;">
+   <div id="obj-data" class="scrolly-item" style="opacity: 0; visibility: hidden;">
       <ScrollyServerRack />
    </div>
 
    <!-- 3. Globe / Network -->
-   <div id="obj-globe" class="scrolly-item" style="opacity: 0;">
+   <div id="obj-globe" class="scrolly-item" style="opacity: 0; visibility: hidden;">
       <ScrollyGlobe />
    </div>
 
    <!-- 4. Mobile Phone App -->
-   <div id="obj-phone" class="scrolly-item" style="opacity: 0;">
+   <div id="obj-phone" class="scrolly-item" style="opacity: 0; visibility: hidden;">
       <ScrollyPhone />
    </div>
 
    <!-- 5. Location / Radar -->
-   <div id="obj-location" class="scrolly-item" style="opacity: 0;">
+   <div id="obj-location" class="scrolly-item" style="opacity: 0; visibility: hidden;">
       <ScrollyLocation />
    </div>
 
    <!-- 6. Communication Hub -->
-   <div id="obj-comms" class="scrolly-item" style="opacity: 0;">
+   <div id="obj-comms" class="scrolly-item" style="opacity: 0; visibility: hidden;">
       <ScrollyPhoneIcon />
    </div>
 
    <!-- NEW: Enterprise/ERP Core -->
-   <div id="obj-enterprise" class="scrolly-item" style="opacity: 0;">
+   <div id="obj-enterprise" class="scrolly-item" style="opacity: 0; visibility: hidden;">
       <ScrollyEnterpriseCore />
    </div>
 
    <!-- NEW: Analytics/Insights -->
-   <div id="obj-analytics" class="scrolly-item" style="opacity: 0;">
+   <div id="obj-analytics" class="scrolly-item" style="opacity: 0; visibility: hidden;">
       <ScrollyAnalytics />
    </div>
 
    <!-- NEW: Network Node Mesh (API) -->
-   <div id="obj-network" class="scrolly-item" style="opacity: 0;">
+   <div id="obj-network" class="scrolly-item" style="opacity: 0; visibility: hidden;">
       <ScrollyNetwork />
    </div>
 </div>
@@ -63,21 +63,32 @@ import ScrollyNetwork from './ScrollyNetwork.astro';
    position: fixed;
    top: 0; left: 0; width: 100%; height: 100vh;
    pointer-events: none;
-   z-index: 5;
-   perspective: 2500px; /* Deep perspective for drastic hardware feel */
-   transform-style: preserve-3d;
+   z-index: 1; /* Behind text content (z-index:10) — objects are background decoration */
+   /* Safari fix: Do NOT use transform-style: preserve-3d on fixed container. */
 }
 
 .scrolly-item {
    position: absolute;
    top: 50%; left: 50%;
    transform-origin: center center;
-   transition: opacity 0.6s cubic-bezier(0.25, 1, 0.5, 1);
-   transform-style: preserve-3d;
    pointer-events: none;
+   will-change: transform, opacity;
+   /* Safari: use visibility alongside opacity to guarantee hidden */
+   visibility: hidden;
+   opacity: 0;
+   /* GPU compositing for Safari */
+   -webkit-backface-visibility: hidden;
+   backface-visibility: hidden;
+   -webkit-transform: translateZ(0);
 }
 
-/* Yalnızca aktif olan obje fare etkileşimlerini alır! */
+/* Active object: make visible but behind text */
+.scrolly-item.is-active {
+   visibility: visible;
+   opacity: 0.45; /* Subtle background presence — never blocks text */
+}
+
+/* Only active object gets pointer events */
 .scrolly-item.is-active > :global(*) {
    pointer-events: auto !important;
 }
@@ -100,6 +111,7 @@ function initScrollyObjects() {
    let currentObjId = null;
    let targetX = 0, targetY = 0, targetScale = 1;
    let targetRotX = 0, targetRotY = 0, targetRotZ = 0;
+   let targetOpacity = 0;
 
    // MOBILE STATIC OVERRIDE
    if (window.innerWidth <= 768) {
@@ -111,22 +123,21 @@ function initScrollyObjects() {
        }
 
        document.querySelectorAll('.scrolly-container').forEach(c => {
-           c.style.height = 'auto'; // Remove massive 1100vh constraints
+           (c as HTMLElement).style.height = 'auto';
        });
 
        const cards = document.querySelectorAll('.scrolly-card-wrapper');
        cards.forEach(card => {
-           card.style.height = 'auto';
-           card.style.minHeight = '100vh'; // Normal full screen section
+           (card as HTMLElement).style.height = 'auto';
+           (card as HTMLElement).style.minHeight = '100vh';
 
            const objId = card.getAttribute('data-obj');
            if (objId && objs[objId]) {
-               const elem = objs[objId];
-               // Reset properties to become a static element block
+               const elem = objs[objId]!;
                elem.style.position = 'relative';
                elem.style.top = '0';
                elem.style.left = '0';
-               elem.style.transform = 'scale(0.8)'; // Make it fit nicely above text
+               elem.style.transform = 'scale(0.8)';
                elem.style.opacity = '1';
                elem.style.pointerEvents = 'auto';
                elem.classList.remove('scrolly-item');
@@ -134,58 +145,78 @@ function initScrollyObjects() {
                elem.style.justifyContent = 'center';
                elem.style.marginBottom = '2rem';
                elem.style.zIndex = '5';
-               
-               // Inject before the text block
                card.prepend(elem);
            }
        });
-
-       // Completely abort the 3D scroll physics loop for mobile
        return;
    }
 
-   // Lerp states for ultra-smooth 60fps interpolation (Apple feel)
-   let cx=0, cy=0, cs=1, crx=0, cry=0, crz=0;
+   // ─── SYNCHRONIZED ANIMATION STATE ───
+   // Current interpolated values (what's actually rendered)
+   let cx = 0, cy = 0, cs = 1, crx = 0, cry = 0, crz = 0, cOpacity = 0;
+   // Scroll-derived data (written by scroll handler, read by rAF loop)
+   let scrollDirty = false;
+   let pendingObjId: string | null = null;
+   let pendingProgress = 0;
+   let pendingActiveCard: Element | null = null;
 
-   function lerp(start, end, amt) {
+   // Delta-time-aware lerp for frame-rate independence
+   const BASE_LERP = 0.12; // Much tighter than old 0.06
+   let lastFrameTime = performance.now();
+
+   function lerp(start: number, end: number, amt: number): number {
       return (1 - amt) * start + amt * end;
    }
 
-   function render() {
-      // Fluid easing interpolation
-      cx = lerp(cx, targetX, 0.06);
-      cy = lerp(cy, targetY, 0.06);
-      cs = lerp(cs, targetScale, 0.06);
-      crx = lerp(crx, targetRotX, 0.06);
-      cry = lerp(cry, targetRotY, 0.06);
-      crz = lerp(crz, targetRotZ, 0.06);
+   // ─── SINGLE UNIFIED rAF LOOP ───
+   function render(now: number) {
+      // Delta-time correction: normalize to 16.67ms (60fps baseline)
+      const dt = Math.min(now - lastFrameTime, 50); // cap to avoid jumps after tab switch
+      lastFrameTime = now;
+      const dtFactor = dt / 16.667;
+      const lerpAmt = 1 - Math.pow(1 - BASE_LERP, dtFactor);
+
+      // Interpolate all values towards targets
+      cx = lerp(cx, targetX, lerpAmt);
+      cy = lerp(cy, targetY, lerpAmt);
+      cs = lerp(cs, targetScale, lerpAmt);
+      crx = lerp(crx, targetRotX, lerpAmt);
+      cry = lerp(cry, targetRotY, lerpAmt);
+      crz = lerp(crz, targetRotZ, lerpAmt);
+      cOpacity = lerp(cOpacity, targetOpacity, lerpAmt * 1.5); // opacity transitions faster
 
       if (currentObjId && objs[currentObjId]) {
-         // Apply to actual element (true 3D rotation)
-         objs[currentObjId].style.transform = `translate(calc(-50% + ${cx}vw), calc(-50% + ${cy}vh)) scale(${cs}) rotateX(${crx}deg) rotateY(${cry}deg) rotateZ(${crz}deg)`;
+         // Cap opacity at 0.45 so objects stay behind text as subtle decoration
+         const maxOpacity = 0.45;
+         const clampedOpacity = Math.max(0, Math.min(maxOpacity, cOpacity));
+         // Safari fix: use visibility to truly hide objects (opacity:0 leaks through preserve-3d)
+         objs[currentObjId]!.style.opacity = String(clampedOpacity);
+         objs[currentObjId]!.style.visibility = clampedOpacity > 0.01 ? 'visible' : 'hidden';
+         objs[currentObjId]!.style.transform = `translate(calc(-50% + ${cx}vw), calc(-50% + ${cy}vh)) scale(${cs}) rotateX(${crx}deg) rotateY(${cry}deg) rotateZ(${crz}deg)`;
       }
+
       requestAnimationFrame(render);
    }
-   render();
+   requestAnimationFrame(render);
 
+   // ─── SCROLL DATA COLLECTOR (runs on scroll, no DOM writes except data caching) ───
    const cards = document.querySelectorAll('.scrolly-card-wrapper');
-   window.addEventListener('scroll', () => {
+
+   function processScroll() {
       const wh = window.innerHeight;
       
-      let activeCard = null;
+      let activeCard: Element | null = null;
       let minDistance = Infinity;
       
-      // Select the card that is closest to screen center.
       for (let i = 0; i < cards.length; i++) {
          const objAttr = cards[i].getAttribute('data-obj');
-         if (!objAttr) continue; // skip text-only slides
+         if (!objAttr) continue;
          
          const rect = cards[i].getBoundingClientRect();
          const cardCenter = rect.top + (rect.height / 2);
          const screenCenter = wh / 2;
          const dist = Math.abs(cardCenter - screenCenter);
          
-         // Tightened trigger zone prevents objects bleeding into intro or footer
          if (dist < minDistance && dist < wh * 0.6) {
              minDistance = dist;
              activeCard = cards[i];
@@ -195,56 +226,50 @@ function initScrollyObjects() {
       if (activeCard) {
          const rect = activeCard.getBoundingClientRect();
          const centerOffset = rect.top + (rect.height / 2) - (wh / 2);
-         
-         // Dynamic Progress Scrubbing. Spread out over huge area for "early" component starts
          const progress = -(centerOffset / wh); 
-         const clampedProgress = Math.max(-2.5, Math.min(2.5, progress));
-
-         // CUSTOM OPACITY LOGIC for better transitions
-         let dynamicOpacity = 1;
          const objId = activeCard.getAttribute('data-obj');
 
          if (objId && objs[objId]) {
+            // Handle object switching with smooth crossfade
             if (currentObjId !== objId) {
-               if(currentObjId && objs[currentObjId]) {
-                  objs[currentObjId].style.opacity = '0';
-                  objs[currentObjId].classList.remove('is-active');
+               if (currentObjId && objs[currentObjId]) {
+                  // Immediately hide old object — Safari needs visibility:hidden, not just opacity:0
+                  objs[currentObjId]!.style.opacity = '0';
+                  objs[currentObjId]!.style.visibility = 'hidden';
+                  objs[currentObjId]!.classList.remove('is-active');
                }
                currentObjId = objId;
+               cOpacity = 0; // Reset interpolated opacity for smooth fade-in
             }
-            // User requested objects not to disappear and come back. Always visible while active.
-            objs[currentObjId].style.opacity = '1';
-            objs[currentObjId].classList.add('is-active');
+            
+            targetOpacity = 0.45; // Objects max at 0.45 opacity (behind text)
+            objs[currentObjId]!.classList.add('is-active');
 
             const clampedProgress = Math.max(-2, Math.min(2, progress));
 
-            // Pull attributes, note: Phone defaults to spin to show off 3D back!
             const isMobile = window.innerWidth <= 768;
             
-            let tx = parseFloat(activeCard.getAttribute('data-tx')) || 0;
-            let ty = parseFloat(activeCard.getAttribute('data-ty')) || 0;
-            let scale = parseFloat(activeCard.getAttribute('data-scale')) || 1;
+            let tx = parseFloat(activeCard.getAttribute('data-tx') || '0');
+            let ty = parseFloat(activeCard.getAttribute('data-ty') || '0');
+            let scale = parseFloat(activeCard.getAttribute('data-scale') || '1');
             
-            // Eğer mobildeysek, objeyi ekranın üst yarısına al (ty = -35) ve küçült, sağa sola kaymayı (tx) iptal et ki metinle çakışmasın
             if (isMobile) {
                 tx = 0;
                 ty = -35; 
-                scale = scale * 0.55; // Mobilde objeleri ufaltıyoruz ve daha yukarı itiyoruz
+                scale = scale * 0.55;
             }
 
-            const baseRx = parseFloat(activeCard.getAttribute('data-rx')) || 0;
-            const baseRy = parseFloat(activeCard.getAttribute('data-ry')) || 0;
-            const baseRz = parseFloat(activeCard.getAttribute('data-rz')) || 0;
+            const baseRx = parseFloat(activeCard.getAttribute('data-rx') || '0');
+            const baseRy = parseFloat(activeCard.getAttribute('data-ry') || '0');
+            const baseRz = parseFloat(activeCard.getAttribute('data-rz') || '0');
 
-            const scrubRot = parseFloat(activeCard.getAttribute('data-scrub-rot')) || 25;
-            const scrubY = parseFloat(activeCard.getAttribute('data-scrub-y')) || 0;
+            const scrubRot = parseFloat(activeCard.getAttribute('data-scrub-rot') || '25');
+            const scrubY = parseFloat(activeCard.getAttribute('data-scrub-y') || '0');
 
-            // Target position calculations
             targetX = tx;
             targetY = ty + (clampedProgress * scrubY); 
             targetScale = scale;
             
-            // 2D objelerin yan dönüp düz (flat) görünmemesi için tüm açıları çok dar bir aralığa (max ~15-20 derece) hapsettik
             let safeRx = baseRx * 0.2;
             let safeRy = baseRy * 0.2;
             let safeScrub = scrubRot * 0.15;
@@ -253,32 +278,27 @@ function initScrollyObjects() {
             targetRotY = safeRy + (clampedProgress * safeScrub * 1.5); 
             targetRotZ = baseRz * 0.2;
 
-            // Interactive scroll physics for AI Core
-            if(objId === 'ai') {
+            // ── Per-object interactive scroll physics ──
+
+            if (objId === 'ai') {
                 const orb = document.getElementById('ai-scroll-orb');
                 const rings = document.getElementById('ai-scroll-rings');
                 const core = document.getElementById('ai-scroll-core');
                 
                 if (orb && rings && core) {
-                    // Glass CPU jumps out of its socket (Z-axis Extrusion) when scrolling
                     const coreZ = 25 + Math.max(0, clampedProgress * 60); 
                     core.style.transform = `translate(-50%, -50%) translateZ(${coreZ}px) rotateZ(${clampedProgress * 15}deg)`;
-                    
-                    // Holograms expand outwards and scale up to envelop the screen
                     rings.style.transform = `scale(${1 + Math.abs(clampedProgress) * 0.3}) translateZ(${clampedProgress * 40}px)`;
                     orb.style.transform = `translate(-50%, -50%) scale(${1 + Math.abs(clampedProgress) * 0.2})`;
                 }
             }
 
-            // Interactive scroll physics for Server Rack
-            if(objId === 'data') {
+            if (objId === 'data') {
                 const b1 = document.getElementById('server-blade-1');
                 const b2 = document.getElementById('server-blade-2');
                 const b3 = document.getElementById('server-blade-3');
                 
                 if (b1 && b2 && b3) {
-                    // Physical Blades pull out sequentially based on scroll (Hot-swap illusion)
-                    // The lower the progress drops, the more the blades slide out!
                     const pullOutMaster = Math.max(0, clampedProgress * 50); 
                     const pullOutStorage = Math.max(0, (clampedProgress - 0.5) * 60); 
                     const pullOutCompute = Math.max(0, (clampedProgress - 1) * 70); 
@@ -289,47 +309,37 @@ function initScrollyObjects() {
                 }
             }
 
-            // Interactive scroll physics for Globe
-            if(objId === 'globe') {
+            if (objId === 'globe') {
                 const rings = document.getElementById('globe-rings');
                 const nodes = document.getElementById('globe-nodes');
                 
                 if (rings && nodes) {
-                    // Rotating internal structures opposite to the main globe rotation for a gyroscopic effect
                     const gyroRot = clampedProgress * 40; 
                     rings.style.transform = `rotateX(${gyroRot}deg) rotateY(${-gyroRot * 0.5}deg) scale(${1 + Math.abs(clampedProgress) * 0.05})`;
                     nodes.style.transform = `rotateY(${gyroRot * 2}deg) translateZ(${clampedProgress * 20}px)`;
                 }
             }
 
-            // Interactive scroll physics for Location (Radar)
-            if(objId === 'location') {
+            if (objId === 'location') {
                const pin = document.querySelector('.mega-location-3d .pin-group') as HTMLElement;
                const scanLine = document.querySelector('.mega-location-3d .scan-line') as HTMLElement;
-               if(pin && scanLine) {
-                  // Pin tilts and leans based on scroll direction
+               if (pin && scanLine) {
                   pin.style.transform = `translateY(${clampedProgress * 20}px) rotateY(${clampedProgress * 30}deg)`;
-                  // Radar scan speeds up as we scroll past center
                   const speed = 4 / (1 + Math.abs(clampedProgress));
                   scanLine.style.animationDuration = `${speed}s`;
                }
             }
 
-            // Interactive scroll physics for Comms (Hologram)
-            if(objId === 'comms') {
+            if (objId === 'comms') {
                const core = document.querySelector('.mega-comms-3d .comms-core') as HTMLElement;
                const rings = document.querySelector('.mega-comms-3d .data-rings') as HTMLElement;
-               if(core && rings) {
-                  // Core pulses and scales based on scroll depth
+               if (core && rings) {
                   core.style.transform = `scale(${1 + Math.abs(clampedProgress) * 0.2}) rotateZ(${clampedProgress * 20}deg)`;
-                  // Rings shift perspective
                   rings.style.transform = `rotateX(${75 + clampedProgress * 10}deg) rotateZ(${clampedProgress * 45}deg)`;
                }
             }
 
-            // Handle UI Background & Internal App Scrolling changes smoothly
-            // Interactive scroll physics for Enterprise Vault
-            if(objId === 'enterprise') {
+            if (objId === 'enterprise') {
                 const vault = document.getElementById('enterprise-main-vault');
                 const core = document.getElementById('enterprise-inner-core');
                 
@@ -339,11 +349,10 @@ function initScrollyObjects() {
                 }
             }
 
-            // Interactive scroll physics for Analytics Terminal
-            if(objId === 'analytics') {
+            if (objId === 'analytics') {
                 const station = document.querySelector('.scrolly-station-3d') as HTMLElement;
                 const bars = document.querySelectorAll('.scrolly-station-3d .bar-fill');
-                if(station && bars.length > 0) {
+                if (station && bars.length > 0) {
                     station.style.transform = `scale(${1 + Math.abs(clampedProgress) * 0.2}) rotateY(${clampedProgress * 40}deg) rotateX(${clampedProgress * 15}deg)`;
                     bars.forEach((bar, i) => {
                         (bar as HTMLElement).style.height = `${40 + (i * 10) + (Math.abs(clampedProgress) * 30)}%`;
@@ -351,52 +360,70 @@ function initScrollyObjects() {
                 }
             }
 
-            // Interactive scroll physics for Satellite Hub
-            if(objId === 'network') {
+            if (objId === 'network') {
                 const sat = document.getElementById('network-satellite');
                 const wings = document.querySelectorAll('.solar-wing');
-                if(sat) {
+                if (sat) {
                     sat.style.transform = `scale(${1 + Math.abs(clampedProgress) * 0.2}) rotateY(${clampedProgress * 60}deg) rotateX(${clampedProgress * 25}deg) translateZ(${Math.abs(clampedProgress) * 50}px)`;
                 }
-                if(wings.length === 2) {
+                if (wings.length === 2) {
                     (wings[0] as HTMLElement).style.transform = `translateY(-50%) rotateY(${15 + clampedProgress * 45}deg)`;
                     (wings[1] as HTMLElement).style.transform = `translateY(-50%) rotateY(${-15 - clampedProgress * 45}deg)`;
                 }
             }
 
-            if(objId === 'phone') {
+            if (objId === 'phone') {
                 const screen = document.getElementById('phone-screen-inner');
                 const scrollView = document.getElementById('phone-scroll-view');
                 const theme = activeCard.getAttribute('data-phone-color');
                 
-                if(theme && screen) {
+                if (theme && screen) {
                    screen.style.background = theme;
                 }
                 
-                if(scrollView) {
-                   // Map the overarching clampedProgress (-2 to 2) to an internal scroll Y value in pixels!
-                   // Reverse the math so as we scroll down the page, we scroll down the app.
-                   // clampedProgress goes from positive to negative usually, let's just multiply by roughly 100px.
+                if (scrollView) {
                    const innerScrollY = Math.max(0, (clampedProgress + 1.5) * 80); 
                    scrollView.style.transform = `translateY(-${innerScrollY}px)`;
                 }
             }
          } else {
-             if(currentObjId && objs[currentObjId]) {
-                 objs[currentObjId].style.opacity = '0';
-                 objs[currentObjId].classList.remove('is-active');
-                 currentObjId = null;
+             // No valid object for this card
+             if (currentObjId && objs[currentObjId]) {
+                 targetOpacity = 0;
+                 if (cOpacity < 0.01) {
+                    objs[currentObjId]!.style.visibility = 'hidden';
+                    objs[currentObjId]!.classList.remove('is-active');
+                    currentObjId = null;
+                 }
              }
          }
       } else {
-         // If activeCard is null (all cards out of 0.6wh bounds), hide the object
-         if(currentObjId && objs[currentObjId]) {
-             objs[currentObjId].style.opacity = '0';
-             objs[currentObjId].classList.remove('is-active');
-             currentObjId = null;
+         // No active card at all
+         if (currentObjId && objs[currentObjId]) {
+             targetOpacity = 0;
+             if (cOpacity < 0.01) {
+                objs[currentObjId]!.style.visibility = 'hidden';
+                objs[currentObjId]!.classList.remove('is-active');
+                currentObjId = null;
+             }
          }
       }
-   });
+   }
+
+   // Throttle scroll to rAF for perfect sync with render loop
+   let scrollTicking = false;
+   window.addEventListener('scroll', () => {
+      if (!scrollTicking) {
+         scrollTicking = true;
+         requestAnimationFrame(() => {
+            processScroll();
+            scrollTicking = false;
+         });
+      }
+   }, { passive: true });
+
+   // Initial calculation
+   processScroll();
 }
 document.addEventListener('DOMContentLoaded', initScrollyObjects);
 </script>

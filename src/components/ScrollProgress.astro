@@ -58,6 +58,11 @@ const { t, lang } = Astro.props;
   const footer = document.querySelector('footer');
   const labels = document.querySelectorAll<HTMLElement>('.progress-label');
 
+  // Pre-compute: add will-change for GPU compositing on scroll-animated cards
+  cards.forEach((card) => {
+    card.style.willChange = 'transform, opacity, filter';
+  });
+
   labels.forEach((label) => {
     label.addEventListener('click', (e) => {
       e.preventDefault();
@@ -111,6 +116,7 @@ const { t, lang } = Astro.props;
     labels.forEach((l) => l.classList.remove('active'));
     if (activeLabel) (activeLabel as HTMLElement).classList.add('active');
 
+    // Card opacity/scale/blur — synchronized with same rAF frame as object 3D transforms
     cards.forEach((card) => {
       const rect = card.getBoundingClientRect();
       const cardCenter = rect.top + rect.height / 2;
@@ -119,13 +125,26 @@ const { t, lang } = Astro.props;
       const maxDist = windowHeight * 0.8;
       let opacity = 1 - dist / maxDist;
       opacity = Math.max(0, Math.min(1, opacity));
-      const scale = 0.8 + 0.3 * opacity;
+      // Tighter scale range for less visual jank — was 0.8 → 1.1, now 0.85 → 1.05
+      const scale = 0.85 + 0.2 * opacity;
       card.style.opacity = String(opacity);
       card.style.transform = `scale(${scale})`;
-      card.style.filter = opacity < 0.5 ? `blur(${(1 - opacity) * 5}px)` : 'none';
+      // Softer blur threshold to avoid jarring on/off switching
+      card.style.filter = opacity < 0.4 ? `blur(${(1 - opacity) * 3}px)` : 'none';
     });
   };
 
-  window.addEventListener('scroll', () => window.requestAnimationFrame(handleScroll));
+  // Use rAF-throttled scroll for sync with the main render loop in ScrollyObjects
+  let ticking = false;
+  window.addEventListener('scroll', () => {
+    if (!ticking) {
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        handleScroll();
+        ticking = false;
+      });
+    }
+  }, { passive: true });
+
   handleScroll(); // initial trigger
 </script>

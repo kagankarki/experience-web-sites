@@ -60,6 +60,7 @@ body {
     color: var(--text-color);
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: none;
 }
 
 
@@ -180,7 +181,7 @@ body {
    ======================================== */
 
 
-@media (max-width: 1024px) {
+@media (max-width: 1200px) {
 
     /* Hide timeline/progress bar on mobile and tablet */
     .scroll-progress-container {

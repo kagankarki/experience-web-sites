@@ -5,6 +5,8 @@
 
 html {
     scroll-behavior: smooth;
+    /* Safari iOS: momentum-based scrolling */
+    -webkit-overflow-scrolling: touch;
 }
 
 * {
@@ -19,7 +21,9 @@ body {
     color: var(--text-color);
     overflow-x: hidden;
     line-height: 1.6;
-    line-height: 1.6;
+    /* Safari: prevent overscroll bounce which desynchronizes fixed elements */
+    overscroll-behavior-y: none;
+    -webkit-overflow-scrolling: touch;
 }
 
 /* Default cursors restored */

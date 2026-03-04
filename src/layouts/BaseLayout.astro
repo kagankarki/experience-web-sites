@@ -114,6 +114,30 @@ const alternateLinks = getAlternateLinks(canonicalPath);
       })();
     </script>
 
+    <!-- Scroll Reveal Observer -->
+    <script is:inline>
+      document.addEventListener('DOMContentLoaded', () => {
+        const revealElements = document.querySelectorAll('.giant-text, .subtitle-text, .category-tag');
+        if (!revealElements.length) return;
+
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('is-visible');
+            } else {
+              // Remove class when out of view so it re-animates on scroll back
+              entry.target.classList.remove('is-visible');
+            }
+          });
+        }, {
+          threshold: 0.15,
+          rootMargin: '0px 0px -50px 0px'
+        });
+
+        revealElements.forEach(el => observer.observe(el));
+      });
+    </script>
+
     <!-- Preloader Logic -->
     <script is:inline>
       window.addEventListener('load', () => {
